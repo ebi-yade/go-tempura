@@ -88,19 +88,19 @@ func (m StringsMux) Execute(args ...string) (string, error) {
 }
 
 type AsyncStringsMux struct {
-	src StringsMux
-	ctx context.Context
+	Map StringsMux
+	Ctx context.Context
 }
 
 func (m StringsMux) BindContext(ctx context.Context) *AsyncStringsMux {
 	return &AsyncStringsMux{
-		src: m,
-		ctx: ctx,
+		Map: m,
+		Ctx: ctx,
 	}
 }
 
 func (m *AsyncStringsMux) Validate() error {
-	for k, v := range m.src {
+	for k, v := range m.Map {
 		switch v.(type) {
 		case StringFunc, StringFuncWithError, StringFuncWithContext, StringFuncWithContextError:
 			slog.Debug(
