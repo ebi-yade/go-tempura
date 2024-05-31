@@ -1,4 +1,4 @@
-package tempurability
+package mux
 
 import (
 	"context"
@@ -40,27 +40,27 @@ func (p SlashPrefix) Strip(s string) string {
 	return strings.TrimPrefix(s, fmt.Sprintf("%s/", p))
 }
 
-type StringsMux map[Prefix]any
+type FuncMap map[Prefix]any
 
-func (m StringsMux) Validate() error {
+func (m FuncMap) Validate() error {
 	for k, v := range m {
 		switch v.(type) {
 		case StringFunc, StringFuncWithError:
 			slog.Debug(
-				fmt.Sprintf("valid function of StringsMux: %s", k),
+				fmt.Sprintf("valid function of FuncMap: %s", k),
 				slog.String("name", fmt.Sprintf("%s", v)),
 				slog.String("type", fmt.Sprintf("%T", v)),
 			)
 
 		default:
-			return fmt.Errorf("invalid function of StringsMux: %s with type %T", k, v)
+			return fmt.Errorf("invalid function of FuncMap: %s with type %T", k, v)
 		}
 	}
 
 	return nil
 }
 
-func (m StringsMux) Execute(args ...string) (string, error) {
+func (m FuncMap) Execute(args ...string) (string, error) {
 	for _, arg := range args {
 
 		for prefix, fn := range m {
@@ -87,7 +87,7 @@ func (m StringsMux) Execute(args ...string) (string, error) {
 				}
 
 			default:
-				return "", fmt.Errorf("invalid function of StringsMux: %s with type %T", prefix, fn)
+				return "", fmt.Errorf("invalid function of FuncMap: %s with type %T", prefix, fn)
 			}
 		}
 
@@ -96,36 +96,36 @@ func (m StringsMux) Execute(args ...string) (string, error) {
 	return "", fmt.Errorf("not found")
 }
 
-type AsyncStringsMux struct {
-	Map StringsMux
+type AsyncFuncMap struct {
+	Map FuncMap
 	Ctx context.Context
 }
 
-func (m StringsMux) BindContext(ctx context.Context) *AsyncStringsMux {
-	return &AsyncStringsMux{
+func (m FuncMap) BindContext(ctx context.Context) *AsyncFuncMap {
+	return &AsyncFuncMap{
 		Map: m,
 		Ctx: ctx,
 	}
 }
 
-func (m *AsyncStringsMux) Validate() error {
+func (m *AsyncFuncMap) Validate() error {
 	for k, v := range m.Map {
 		switch v.(type) {
 		case StringFunc, StringFuncWithError, StringFuncWithContext, StringFuncWithContextError:
 			slog.Debug(
-				fmt.Sprintf("valid function of AsyncStringsMux: %s", k),
+				fmt.Sprintf("valid function of AsyncFuncMap: %s", k),
 				slog.String("name", fmt.Sprintf("%s", v)),
 				slog.String("type", fmt.Sprintf("%T", v)),
 			)
 		default:
-			return fmt.Errorf("invalid function of AsyncStringsMux: %s with type %T", k, v)
+			return fmt.Errorf("invalid function of AsyncFuncMap: %s with type %T", k, v)
 		}
 	}
 
 	return nil
 }
 
-func (m *AsyncStringsMux) Execute(args ...string) (string, error) {
+func (m *AsyncFuncMap) Execute(args ...string) (string, error) {
 
 	type result struct {
 		val string
@@ -181,7 +181,7 @@ func (m *AsyncStringsMux) Execute(args ...string) (string, error) {
 				}()
 
 			default:
-				return "", fmt.Errorf("invalid function of AsyncStringsMux: %s with type %T", prefix, fn)
+				return "", fmt.Errorf("invalid function of AsyncFuncMap: %s with type %T", prefix, fn)
 			}
 		}
 
