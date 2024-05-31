@@ -61,7 +61,8 @@ func (m StringsMux) Validate() error {
 }
 
 func (m StringsMux) Execute(args ...string) (string, error) {
-	for index, arg := range args {
+	for _, arg := range args {
+
 		for prefix, fn := range m {
 			if !prefix.Match(arg) {
 				continue
@@ -84,16 +85,15 @@ func (m StringsMux) Execute(args ...string) (string, error) {
 				if ok {
 					return val, nil
 				}
+
+			default:
+				return "", fmt.Errorf("invalid function of StringsMux: %s with type %T", prefix, fn)
 			}
 		}
 
-		if index == len(args)-1 {
-			return arg, nil // default value
-		}
-		return "", fmt.Errorf("no match found for %s", arg)
 	}
 
-	return "", fmt.Errorf("no arguments provided")
+	return "", fmt.Errorf("not found")
 }
 
 type AsyncStringsMux struct {
@@ -144,6 +144,7 @@ func (m *AsyncStringsMux) Execute(args ...string) (string, error) {
 	// en: Fire asynchronous processing or execute synchronous processing
 	for index, arg := range args {
 		promise := results[index]
+
 		for prefix, fn := range m.Map {
 			if !prefix.Match(arg) {
 				continue
@@ -180,14 +181,10 @@ func (m *AsyncStringsMux) Execute(args ...string) (string, error) {
 				}()
 
 			default:
-				if index == len(args)-1 {
-					promise <- result{val: arg, ok: true, err: nil}
-					close(promise)
-				} else {
-					return "", fmt.Errorf("no match found for %s", arg)
-				}
+				return "", fmt.Errorf("invalid function of AsyncStringsMux: %s with type %T", prefix, fn)
 			}
 		}
+
 	}
 
 	for _, promise := range results {
@@ -202,5 +199,5 @@ func (m *AsyncStringsMux) Execute(args ...string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("no arguments provided")
+	return "", fmt.Errorf("not found")
 }
