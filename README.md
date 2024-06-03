@@ -1,4 +1,4 @@
-# go-tempurability
+# go-tempura
 
 🍤 ebi の天ぷら、あるいは Go の template を使いやすくする仲間たち
 
