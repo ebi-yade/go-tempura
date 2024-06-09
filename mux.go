@@ -167,6 +167,9 @@ type FuncMuxContext struct {
 }
 
 func (m *FuncMuxContext) Validate() error {
+	if len(m.FuncMux) == 0 {
+		return ErrNoFunctionRegistered
+	}
 	for prefix, fn := range m.FuncMux {
 		switch fn.(type) {
 		case ReturningAny, ReturningAnyWithError, ReturningAnyWithContext, ReturningAnyWithContextError:
