@@ -82,6 +82,9 @@ func FuncWithContextError[R any](fn func(ctx context.Context, val string) (R, bo
 type FuncMux map[Prefix]any
 
 func (m FuncMux) Validate() error {
+	if len(m) == 0 {
+		return ErrNoFunctionRegistered
+	}
 	for k, v := range m {
 		switch v.(type) {
 		case ReturningAny, ReturningAnyWithError:
@@ -259,8 +262,10 @@ func (m *FuncMuxContext) Execute(args ...string) (any, error) {
 }
 
 // =================================================================================
-// Defined error types that you can handle with errors.As
+// Defined errors that you can handle with errors.Is / errors.As
 // =================================================================================
+
+var ErrNoFunctionRegistered = fmt.Errorf("no function registered")
 
 type InvalidFunctionError struct {
 	MuxType string
