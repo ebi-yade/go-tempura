@@ -12,7 +12,7 @@ go get github.com/ebi-yade/go-tempura
 
 ## Usage 1: `tempura.MultiLookup`
 
-`template.FuncMap` の値として代入可能な
+`template.FuncMap` の値として代入可能な以下のユーティリティを `FuncMapValue` メソッドとして提供します。
 
 1. テンプレート側の記述で引数に指定された string の列を受け取ります。
 2. Prefix に応じたコールバックを呼び出し、同期または非同期で値を探索します。
