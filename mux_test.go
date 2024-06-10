@@ -94,52 +94,60 @@ func TestMultiLookupContext_Validate(t *testing.T) {
 		return "", false, fmt.Errorf("this function always returns an error")
 	}
 
+	ctx := context.TODO()
+
 	tests := []struct {
 		name     string
-		mux      *tempura.MultiLookupContext
+		receiver *tempura.MultiLookupContext
 		checkErr func(t *testing.T, err error)
 	}{
 		// ==================== VALID CASES ====================
 		{
 			name: "single valid function that receives context",
-			mux: &tempura.MultiLookupContext{
-				MultiLookup: tempura.MultiLookup{
-					tempura.DotPrefix("secret"): tempura.FuncWithContextError(fetchSecret),
-				},
-			},
+			receiver: tempura.MultiLookup{
+				tempura.DotPrefix("secret"): tempura.FuncWithContextError(fetchSecret),
+			}.BindContext(ctx),
 			checkErr: func(t *testing.T, err error) {
 				assert.NoError(t, err)
 			},
 		},
 		{
 			name: "multiple valid functions",
-			mux: &tempura.MultiLookupContext{
-				MultiLookup: tempura.MultiLookup{
-					tempura.DotPrefix("env"):     tempura.Func(os.LookupEnv),
-					tempura.DotPrefix("default"): tempura.Func(keyAsValue),
-					tempura.DotPrefix("oops"):    tempura.FuncWithError(always),
-					tempura.DotPrefix("secret"):  tempura.FuncWithContextError(fetchSecret),
-				},
-			},
+			receiver: tempura.MultiLookup{
+				tempura.DotPrefix("env"):     tempura.Func(os.LookupEnv),
+				tempura.DotPrefix("default"): tempura.Func(keyAsValue),
+				tempura.DotPrefix("oops"):    tempura.FuncWithError(always),
+				tempura.DotPrefix("secret"):  tempura.FuncWithContextError(fetchSecret),
+			}.BindContext(ctx),
 			checkErr: func(t *testing.T, err error) {
 				assert.NoError(t, err)
 			},
 		},
 		// ==================== INVALID CASES ====================
 		{
-			name: "no functions registered",
-			mux: &tempura.MultiLookupContext{
-				MultiLookup: tempura.MultiLookup{},
-			},
+			name:     "no functions registered",
+			receiver: tempura.MultiLookup{}.BindContext(ctx),
 			checkErr: func(t *testing.T, err error) {
 				assert.ErrorIs(t, err, tempura.ErrNoFunctionRegistered)
+			},
+		},
+		{
+			name: "forget to call BindContext",
+			receiver: &tempura.MultiLookupContext{
+				MultiLookup: tempura.MultiLookup{
+					tempura.DotPrefix("secret"): tempura.FuncWithContextError(fetchSecret),
+				},
+				//Ctx is nil
+			},
+			checkErr: func(t *testing.T, err error) {
+				assert.ErrorIs(t, err, tempura.ErrContextUntypedNil)
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.mux.Validate()
+			err := tt.receiver.Validate()
 			tt.checkErr(t, err)
 		})
 	}

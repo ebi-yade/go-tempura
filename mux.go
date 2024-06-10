@@ -184,6 +184,9 @@ type MultiLookupContext struct {
 }
 
 func (m *MultiLookupContext) Validate() error {
+	if m.Ctx == nil {
+		return fmt.Errorf("consider calling BindContext(ctx): %w", ErrContextUntypedNil)
+	}
 	if len(m.MultiLookup) == 0 {
 		return ErrNoFunctionRegistered
 	}
@@ -286,6 +289,7 @@ func (m *MultiLookupContext) FuncMapValue(args ...string) (any, error) {
 // =================================================================================
 
 var ErrNoFunctionRegistered = fmt.Errorf("no function registered")
+var ErrContextUntypedNil = fmt.Errorf("context.Context is untyped nil")
 
 type InvalidFunctionError struct {
 	Type   string
