@@ -231,19 +231,19 @@ func (m *FuncMuxContext) Execute(args ...string) (any, error) {
 
 			switch fn := fn.(type) {
 			case ReturningAny:
-				slog.Debug(fmt.Sprintf("executing ReturningAny for %s", arg))
+				slog.DebugContext(ctx, fmt.Sprintf("executing ReturningAny for %s", arg))
 				val, ok := fn(suffix)
 				promise <- result{val: val, ok: ok, err: nil}
 				close(promise)
 
 			case ReturningAnyWithError:
-				slog.Debug(fmt.Sprintf("executing ReturningAnyWithError for %s", arg))
+				slog.DebugContext(ctx, fmt.Sprintf("executing ReturningAnyWithError for %s", arg))
 				val, ok, err := fn(suffix)
 				promise <- result{val: val, ok: ok, err: err}
 				close(promise)
 
 			case ReturningAnyWithContext:
-				slog.Debug(fmt.Sprintf("executing ReturningAnyWithContext for %s", arg))
+				slog.DebugContext(ctx, fmt.Sprintf("executing ReturningAnyWithContext for %s", arg))
 				go func() {
 					val, ok := fn(ctx, suffix)
 					promise <- result{val: val, ok: ok, err: nil}
@@ -251,7 +251,7 @@ func (m *FuncMuxContext) Execute(args ...string) (any, error) {
 				}()
 
 			case ReturningAnyWithContextError:
-				slog.Debug(fmt.Sprintf("executing ReturningAnyWithContextError for %s", arg))
+				slog.DebugContext(ctx, fmt.Sprintf("executing ReturningAnyWithContextError for %s", arg))
 				go func() {
 					val, ok, err := fn(ctx, suffix)
 					promise <- result{val: val, ok: ok, err: err}
