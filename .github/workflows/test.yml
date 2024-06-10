@@ -1,0 +1,19 @@
+name: unit test
+on:
+  push:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        id: setup-go
+        with:
+          go-version: 1.21
+
+      - run: go mod download
+        if: ${{ steps.setup-go.outputs.cache-hit != 'true' }}
+
+      - run: go test ./...
