@@ -124,12 +124,15 @@ func (m MultiLookup) Validate() error {
 }
 
 func (m MultiLookup) FuncMapValue(args ...string) (any, error) {
+	matched := false
 	for _, arg := range args {
 
 		for prefix, fn := range m {
 			if !prefix.Match(arg) {
 				continue
 			}
+			matched = true
+
 			suffix := prefix.Strip(arg)
 			switch fn := fn.(type) {
 			case LookupAny:
@@ -156,16 +159,11 @@ func (m MultiLookup) FuncMapValue(args ...string) (any, error) {
 		}
 
 	}
-
-	return nil, MatchFailedError{Args: args, Prefixes: m.prefixes()}
-}
-
-func (m MultiLookup) prefixes() []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, fmt.Sprintf("%s", k))
+	if !matched {
+		return nil, ErrMatchFailed
 	}
-	return keys
+
+	return nil, ErrNotFound
 }
 
 func (m MultiLookup) BindContext(ctx context.Context) *MultiLookupContext {
@@ -223,6 +221,7 @@ func (m *MultiLookupContext) FuncMapValue(args ...string) (any, error) {
 
 	// 非同期処理の発火または同期処理実行
 	// en: Fire asynchronous processing or execute synchronous processing
+	matched := false
 	for index, arg := range args {
 		promise := results[index]
 
@@ -230,6 +229,7 @@ func (m *MultiLookupContext) FuncMapValue(args ...string) (any, error) {
 			if !prefix.Match(arg) {
 				continue
 			}
+			matched = true
 			suffix := prefix.Strip(arg)
 
 			switch fn := fn.(type) {
@@ -268,6 +268,9 @@ func (m *MultiLookupContext) FuncMapValue(args ...string) (any, error) {
 		}
 
 	}
+	if !matched {
+		return nil, ErrMatchFailed
+	}
 
 	for _, promise := range results {
 		select {
@@ -281,7 +284,7 @@ func (m *MultiLookupContext) FuncMapValue(args ...string) (any, error) {
 		}
 	}
 
-	return nil, MatchFailedError{Args: args, Prefixes: m.MultiLookup.prefixes()}
+	return nil, ErrNotFound
 }
 
 // =================================================================================
@@ -290,6 +293,8 @@ func (m *MultiLookupContext) FuncMapValue(args ...string) (any, error) {
 
 var ErrNoFunctionRegistered = fmt.Errorf("no function registered")
 var ErrContextUntypedNil = fmt.Errorf("context.Context is untyped nil")
+var ErrMatchFailed = fmt.Errorf("failed to match between args and prefixes")
+var ErrNotFound = fmt.Errorf("not found: none of the lookup functions returned true as the second return value")
 
 type InvalidFunctionError struct {
 	Type   string
@@ -299,13 +304,4 @@ type InvalidFunctionError struct {
 
 func (e InvalidFunctionError) Error() string {
 	return fmt.Sprintf("invalid function of %s: %+v with type %T", e.Type, e.Prefix, e.Func)
-}
-
-type MatchFailedError struct {
-	Args     []string
-	Prefixes []string
-}
-
-func (e MatchFailedError) Error() string {
-	return fmt.Sprintf("match failed for args: %q within prefixes: %q", e.Args, e.Prefixes)
 }
