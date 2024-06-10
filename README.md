@@ -35,7 +35,7 @@ import (
 
 const configYAML = `# This is example: please load from file via embed/os package
 db_user: {{ param "env/DB_USER" "env/MYSQL_USER" "default/root" }}
-db_pass: {{ secret "manager.DB_PASS" "sops.DB_PASS" }}
+db_pass: {{ secret "manager.DB_PASS" "sops.DB_PASS" "default.p@ssword!" }}
 `
 
 func main() {
@@ -46,16 +46,17 @@ func main() {
 		tempura.SlashPrefix("env"):     tempura.Func(getNonEmptyEnv),
 		tempura.SlashPrefix("default"): tempura.Func(getKeyAsValue),
 	}
-	if err := lookupParams.Validate; err != nil {
-		log.Fatalf("failed to validate lookupParams: %v", err)
+	if err := lookupParams.Validate(); err != nil {
+		log.Fatalf("failed to validate lookupParams: %+v", err)
 	}
 
 	lookupSecrets := tempura.MultiLookup{
-		tempura.DotPrefix("manager"): tempura.FuncWithContextError(fetchSecretFromCloud),
-		tempura.DotPrefix("sops"):    tempura.FuncWithError(getLocalSopsSecret),
+		tempura.DotPrefix("manager"): tempura.FuncWithContextError(fetchCloudSecret),
+		tempura.DotPrefix("sops"):    tempura.FuncWithError(getSopsSecret),
+		tempura.DotPrefix("default"): tempura.Func(getKeyAsValue),
 	}.BindContext(ctx) // DO NOT FORGET TO USE context.Context
 	if err := lookupSecrets.Validate(); err != nil {
-		log.Fatalf("failed to validate lookupSecrets: %v", err)
+		log.Fatalf("failed to validate lookupSecrets: %+v", err)
 	}
 
 	tpl := template.Must(
@@ -66,7 +67,7 @@ func main() {
 	)
 
 	if err := tpl.Execute(os.Stdout, nil); err != nil {
-		log.Fatalf("failed to execute template: %v", err)
+		log.Fatalf("failed to execute template: %+v", err)
 	}
 }
 
@@ -84,11 +85,11 @@ func getKeyAsValue(key string) (string, bool) {
 	return key, true
 }
 
-func fetchSecretFromCloud(ctx context.Context, key string) (string, bool, error) {
+func fetchCloudSecret(ctx context.Context, key string) (string, bool, error) {
 	return "", false, fmt.Errorf("not implemented")
 }
 
-func getLocalSopsSecret(key string) (string, bool, error) {
+func getSopsSecret(key string) (string, bool, error) {
 	return "", false, fmt.Errorf("not implemented")
 }
 
