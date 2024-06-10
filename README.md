@@ -71,8 +71,12 @@ func main() {
 	}
 }
 
-// getNonEmptyEnv differs a little bit from os.LookupEnv
-// IMPORTANT NOTE: returning true means the key is found, so tempura will not try to look up the next key
+// ======================================================================
+// IMPORTANT NOTE:
+//   探索関数が第二返り値で true を返すと、値が見つかったことを意味します。
+//   そのため、第一返り値が "" などのゼロ値であっても、tempura はそれを採用します。
+// ======================================================================
+
 func getNonEmptyEnv(key string) (string, bool) {
 	val := os.Getenv(key)
 	if val == "" {
