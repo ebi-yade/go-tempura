@@ -33,7 +33,7 @@ import (
 	tempura "github.com/ebi-yade/go-tempura"
 )
 
-const configYAML = `# This is example: please load from file via embed/os package
+const configYAML = `# This is just an example: please load a file via embed/os package
 db_user: {{ param "env/DB_USER" "env/MYSQL_USER" "default/root" }}
 db_pass: {{ secret "manager.DB_PASS" "sops.DB_PASS" "default.p@ssword!" }}
 `
