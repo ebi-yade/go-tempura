@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestFuncMux_Validate(t *testing.T) {
+func TestMultiLookup_Validate(t *testing.T) {
 	t.Parallel()
 
 	keyAsValue := func(val string) (string, bool) {
@@ -25,13 +25,13 @@ func TestFuncMux_Validate(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		mux      *tempura.FuncMux
+		mux      *tempura.MultiLookup
 		checkErr func(t *testing.T, err error)
 	}{
 		// ==================== VALID CASES ====================
 		{
 			name: "single valid function",
-			mux: &tempura.FuncMux{
+			mux: &tempura.MultiLookup{
 				tempura.DotPrefix("env"): tempura.Func(os.LookupEnv),
 			},
 			checkErr: func(t *testing.T, err error) {
@@ -40,7 +40,7 @@ func TestFuncMux_Validate(t *testing.T) {
 		},
 		{
 			name: "multiple valid functions",
-			mux: &tempura.FuncMux{
+			mux: &tempura.MultiLookup{
 				tempura.DotPrefix("env"):     tempura.Func(os.LookupEnv),
 				tempura.DotPrefix("default"): tempura.Func(keyAsValue),
 				tempura.DotPrefix("oops"):    tempura.FuncWithError(always),
@@ -52,14 +52,14 @@ func TestFuncMux_Validate(t *testing.T) {
 		// ==================== INVALID CASES ====================
 		{
 			name: "no functions registered",
-			mux:  &tempura.FuncMux{},
+			mux:  &tempura.MultiLookup{},
 			checkErr: func(t *testing.T, err error) {
 				assert.ErrorIs(t, err, tempura.ErrNoFunctionRegistered)
 			},
 		},
 		{
 			name: "contains invalid function that receives context",
-			mux: &tempura.FuncMux{
+			mux: &tempura.MultiLookup{
 				tempura.DotPrefix("env"):     tempura.Func(os.LookupEnv),
 				tempura.DotPrefix("default"): tempura.Func(keyAsValue),
 				tempura.DotPrefix("secret"):  tempura.FuncWithContextError(fetchSecret),
@@ -67,7 +67,7 @@ func TestFuncMux_Validate(t *testing.T) {
 			checkErr: func(t *testing.T, err error) {
 				expected := tempura.InvalidFunctionError{}
 				assert.ErrorAs(t, err, &expected)
-				assert.Equal(t, "FuncMux", expected.MuxType, "MuxType mismatch")
+				assert.Equal(t, "MultiLookup", expected.Type, "Type mismatch")
 				assert.Equal(t, tempura.DotPrefix("secret"), expected.Prefix, "Prefix mismatch")
 			},
 		},
@@ -81,7 +81,7 @@ func TestFuncMux_Validate(t *testing.T) {
 	}
 }
 
-func TestFuncMuxContext_Validate(t *testing.T) {
+func TestMultiLookupContext_Validate(t *testing.T) {
 	t.Parallel()
 
 	keyAsValue := func(val string) (string, bool) {
@@ -96,14 +96,14 @@ func TestFuncMuxContext_Validate(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		mux      *tempura.FuncMuxContext
+		mux      *tempura.MultiLookupContext
 		checkErr func(t *testing.T, err error)
 	}{
 		// ==================== VALID CASES ====================
 		{
 			name: "single valid function that receives context",
-			mux: &tempura.FuncMuxContext{
-				FuncMux: tempura.FuncMux{
+			mux: &tempura.MultiLookupContext{
+				MultiLookup: tempura.MultiLookup{
 					tempura.DotPrefix("secret"): tempura.FuncWithContextError(fetchSecret),
 				},
 			},
@@ -113,8 +113,8 @@ func TestFuncMuxContext_Validate(t *testing.T) {
 		},
 		{
 			name: "multiple valid functions",
-			mux: &tempura.FuncMuxContext{
-				FuncMux: tempura.FuncMux{
+			mux: &tempura.MultiLookupContext{
+				MultiLookup: tempura.MultiLookup{
 					tempura.DotPrefix("env"):     tempura.Func(os.LookupEnv),
 					tempura.DotPrefix("default"): tempura.Func(keyAsValue),
 					tempura.DotPrefix("oops"):    tempura.FuncWithError(always),
@@ -128,8 +128,8 @@ func TestFuncMuxContext_Validate(t *testing.T) {
 		// ==================== INVALID CASES ====================
 		{
 			name: "no functions registered",
-			mux: &tempura.FuncMuxContext{
-				FuncMux: tempura.FuncMux{},
+			mux: &tempura.MultiLookupContext{
+				MultiLookup: tempura.MultiLookup{},
 			},
 			checkErr: func(t *testing.T, err error) {
 				assert.ErrorIs(t, err, tempura.ErrNoFunctionRegistered)

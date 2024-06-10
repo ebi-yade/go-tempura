@@ -8,7 +8,7 @@ import (
 )
 
 // =================================================================================
-// Prefix types for FuncMux keys
+// Prefix types for MultiLookup keys
 // =================================================================================
 
 type Prefix interface {
@@ -37,93 +37,93 @@ func (p SlashPrefix) Strip(s string) string {
 }
 
 // =================================================================================
-// Function types for FuncMux values
+// Function types for MultiLookup values
 // =================================================================================
 
-type ReturningAny func(val string) (any, bool)
+type LookupAny func(val string) (any, bool)
 
-type ReturningAnyWithError func(val string) (any, bool, error)
+type LookupAnyWithError func(val string) (any, bool, error)
 
-type ReturningAnyWithContext func(ctx context.Context, val string) (any, bool)
+type LookupAnyWithContext func(ctx context.Context, val string) (any, bool)
 
-type ReturningAnyWithContextError func(ctx context.Context, val string) (any, bool, error)
+type LookupAnyWithContextError func(ctx context.Context, val string) (any, bool, error)
 
-func Func[R any](fn func(val string) (R, bool)) ReturningAny {
+func Func[R any](fn func(val string) (R, bool)) LookupAny {
 	return func(val string) (any, bool) {
 		return fn(val)
 	}
 }
 
-func FuncWithError[R any](fn func(val string) (R, bool, error)) ReturningAnyWithError {
+func FuncWithError[R any](fn func(val string) (R, bool, error)) LookupAnyWithError {
 	return func(val string) (any, bool, error) {
 		return fn(val)
 	}
 }
 
-func FuncWithContext[R any](fn func(ctx context.Context, val string) (R, bool)) ReturningAnyWithContext {
+func FuncWithContext[R any](fn func(ctx context.Context, val string) (R, bool)) LookupAnyWithContext {
 	return func(ctx context.Context, val string) (any, bool) {
 		return fn(ctx, val)
 	}
 }
 
-func FuncWithContextError[R any](fn func(ctx context.Context, val string) (R, bool, error)) ReturningAnyWithContextError {
+func FuncWithContextError[R any](fn func(ctx context.Context, val string) (R, bool, error)) LookupAnyWithContextError {
 	return func(ctx context.Context, val string) (any, bool, error) {
 		return fn(ctx, val)
 	}
 }
 
-// MuxCallback は、FuncMux に登録する個々関数で、prefixを取り除いたキーを文字列として受け取って何かしらの値を返す必要があります。
-// MuxCallback インタフェースを満たすには、 tempura.FuncXXXX 経由で ReturningAnyXXXX 型を生成することが推奨されます。
+// LookupFunc は、MultiLookup に登録する個々関数で、prefixを取り除いたキーを文字列として受け取って何かしらの値を返す必要があります。
+// LookupFunc インタフェースを満たすには、 tempura.FuncXXXX 経由で LookupAnyXXXX 型を生成することが推奨されます。
 // tempura.FuncXXXX で登場するジェネリック型制約はanyですが、 template パッケージが処理できない型を利用すると実行時エラーになる可能性があります。
 //
-// MuxCallback represents individual functions registered in FuncMux, which receive the key as a string, with the prefix removed, and return some value.
-// It is recommended to generate a ReturningAnyXXXX type through tempura.FuncXXXX to satisfy the MuxCallback interface.
+// LookupFunc represents individual functions registered in MultiLookup, which receive the key as a string, with the prefix removed, and return some value.
+// It is recommended to generate a LookupAnyXXXX type through tempura.FuncXXXX to satisfy the LookupFunc interface.
 // The generic type constraint in tempura.FuncXXXX is 'any', but using types that the template package cannot process might result in runtime errors.
-type MuxCallback interface {
-	_isSupportedMuxCallback()
+type LookupFunc interface {
+	_isSupportedLookupFunc()
 }
 
-func (fn ReturningAny) _isSupportedMuxCallback() {}
+func (fn LookupAny) _isSupportedLookupFunc() {}
 
-func (fn ReturningAnyWithError) _isSupportedMuxCallback() {}
+func (fn LookupAnyWithError) _isSupportedLookupFunc() {}
 
-func (fn ReturningAnyWithContext) _isSupportedMuxCallback() {}
+func (fn LookupAnyWithContext) _isSupportedLookupFunc() {}
 
-func (fn ReturningAnyWithContextError) _isSupportedMuxCallback() {}
+func (fn LookupAnyWithContextError) _isSupportedLookupFunc() {}
 
-// FuncMux は、1つまたは複数の文字列を引数として受け取るアクションにおいて、引数のプレフィックスに応じて異なる関数を実行するための機構です。
-// ただし context.Context を受け取る関数も利用する場合は、 BindContext(ctx) を呼び出して FuncMuxContext を生成する必要があります。
+// MultiLookup は、1つまたは複数の文字列を引数として受け取るアクションにおいて、引数のプレフィックスに応じて異なる探索関数を実行するための機構です。
+// ただし context.Context を受け取る関数も利用する場合は、 BindContext(ctx) を呼び出して MultiLookupContext を生成する必要があります。
 //
-// FuncMux is a mechanism for executing different functions depending on the prefix of the arguments in actions that take one or more strings as arguments.
-// NOTE: If you want to use a function that takes context.Context, you need to call BindContext(ctx) to generate FuncMuxContext.
-type FuncMux map[Prefix]MuxCallback
+// MultiLookup is a mechanism for executing different lookup functions depending on the prefix of the arguments in actions that take one or more strings as arguments.
+// NOTE: If you want to use a function that takes context.Context, you need to call BindContext(ctx) to generate MultiLookupContext.
+type MultiLookup map[Prefix]LookupFunc
 
-func (m FuncMux) Validate() error {
+func (m MultiLookup) Validate() error {
 	if len(m) == 0 {
 		return ErrNoFunctionRegistered
 	}
 	for k, v := range m {
 		switch v.(type) {
-		case ReturningAny, ReturningAnyWithError:
+		case LookupAny, LookupAnyWithError:
 			slog.Debug(
-				fmt.Sprintf("valid function of FuncMux: %s", k),
+				fmt.Sprintf("valid function of MultiLookup: %s", k),
 				slog.Any("name", fmt.Sprintf("%s", v)),
 				slog.Any("type", fmt.Sprintf("%T", v)),
 			)
 
-		case ReturningAnyWithContext, ReturningAnyWithContextError:
-			err := InvalidFunctionError{MuxType: "FuncMux", Prefix: k, Func: v}
-			return fmt.Errorf("consider calling BindContext(ctx) to generate FuncMuxContext: %w", err)
+		case LookupAnyWithContext, LookupAnyWithContextError:
+			err := InvalidFunctionError{Type: "MultiLookup", Prefix: k, Func: v}
+			return fmt.Errorf("consider calling BindContext(ctx) to generate MultiLookupContext: %w", err)
 
 		default:
-			return InvalidFunctionError{MuxType: "FuncMux", Prefix: k, Func: v}
+			return InvalidFunctionError{Type: "MultiLookup", Prefix: k, Func: v}
 		}
 	}
 
 	return nil
 }
 
-func (m FuncMux) Execute(args ...string) (any, error) {
+func (m MultiLookup) FuncMapValue(args ...string) (any, error) {
 	for _, arg := range args {
 
 		for prefix, fn := range m {
@@ -132,15 +132,15 @@ func (m FuncMux) Execute(args ...string) (any, error) {
 			}
 			suffix := prefix.Strip(arg)
 			switch fn := fn.(type) {
-			case ReturningAny:
-				slog.Debug(fmt.Sprintf("executing ReturningAny for %s", arg))
+			case LookupAny:
+				slog.Debug(fmt.Sprintf("executing LookupAny for %s", arg))
 				val, ok := fn(suffix)
 				if ok {
 					return val, nil
 				}
 
-			case ReturningAnyWithError:
-				slog.Debug(fmt.Sprintf("executing ReturningAnyWithError for %s", arg))
+			case LookupAnyWithError:
+				slog.Debug(fmt.Sprintf("executing LookupAnyWithError for %s", arg))
 				val, ok, err := fn(suffix)
 				if err != nil {
 					return nil, err
@@ -150,17 +150,17 @@ func (m FuncMux) Execute(args ...string) (any, error) {
 				}
 
 			default:
-				err := InvalidFunctionError{MuxType: "FuncMux", Prefix: prefix, Func: fn}
+				err := InvalidFunctionError{Type: "MultiLookup", Prefix: prefix, Func: fn}
 				return nil, fmt.Errorf("consider calling Validate() to check the functions: %w", err)
 			}
 		}
 
 	}
 
-	return nil, MatchFailedError{Args: args, MuxKeys: m.keys()}
+	return nil, MatchFailedError{Args: args, Prefixes: m.prefixes()}
 }
 
-func (m FuncMux) keys() []string {
+func (m MultiLookup) prefixes() []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, fmt.Sprintf("%s", k))
@@ -168,42 +168,42 @@ func (m FuncMux) keys() []string {
 	return keys
 }
 
-func (m FuncMux) BindContext(ctx context.Context) *FuncMuxContext {
-	return &FuncMuxContext{
-		FuncMux: m,
-		Ctx:     ctx,
+func (m MultiLookup) BindContext(ctx context.Context) *MultiLookupContext {
+	return &MultiLookupContext{
+		MultiLookup: m,
+		Ctx:         ctx,
 	}
 }
 
-// FuncMuxContext は context.Context を受け取る関数を利用できる FuncMux です。 BindContext(ctx) を呼び出して生成してください。
+// MultiLookupContext は context.Context を受け取る関数を利用できる MultiLookup です。 BindContext(ctx) を呼び出して生成してください。
 //
-// FuncMuxContext is a FuncMux that can use functions that accept context.Context. Generate it by calling BindContext(ctx).
-type FuncMuxContext struct {
-	FuncMux FuncMux
-	Ctx     context.Context
+// MultiLookupContext is a MultiLookup that can use functions that accept context.Context. Generate it by calling BindContext(ctx).
+type MultiLookupContext struct {
+	MultiLookup MultiLookup
+	Ctx         context.Context
 }
 
-func (m *FuncMuxContext) Validate() error {
-	if len(m.FuncMux) == 0 {
+func (m *MultiLookupContext) Validate() error {
+	if len(m.MultiLookup) == 0 {
 		return ErrNoFunctionRegistered
 	}
-	for prefix, fn := range m.FuncMux {
+	for prefix, fn := range m.MultiLookup {
 		switch fn.(type) {
-		case ReturningAny, ReturningAnyWithError, ReturningAnyWithContext, ReturningAnyWithContextError:
+		case LookupAny, LookupAnyWithError, LookupAnyWithContext, LookupAnyWithContextError:
 			slog.Debug(
-				fmt.Sprintf("valid function of FuncMuxContext: %s", prefix),
+				fmt.Sprintf("valid function of MultiLookupContext: %s", prefix),
 				slog.Any("name", fmt.Sprintf("%s", fn)),
 				slog.Any("type", fmt.Sprintf("%T", fn)),
 			)
 		default:
-			return InvalidFunctionError{MuxType: "FuncMuxContext", Prefix: prefix, Func: fn}
+			return InvalidFunctionError{Type: "MultiLookupContext", Prefix: prefix, Func: fn}
 		}
 	}
 
 	return nil
 }
 
-func (m *FuncMuxContext) Execute(args ...string) (any, error) {
+func (m *MultiLookupContext) FuncMapValue(args ...string) (any, error) {
 
 	type result struct {
 		val any
@@ -223,35 +223,35 @@ func (m *FuncMuxContext) Execute(args ...string) (any, error) {
 	for index, arg := range args {
 		promise := results[index]
 
-		for prefix, fn := range m.FuncMux {
+		for prefix, fn := range m.MultiLookup {
 			if !prefix.Match(arg) {
 				continue
 			}
 			suffix := prefix.Strip(arg)
 
 			switch fn := fn.(type) {
-			case ReturningAny:
-				slog.DebugContext(ctx, fmt.Sprintf("executing ReturningAny for %s", arg))
+			case LookupAny:
+				slog.DebugContext(ctx, fmt.Sprintf("executing LookupAny for %s", arg))
 				val, ok := fn(suffix)
 				promise <- result{val: val, ok: ok, err: nil}
 				close(promise)
 
-			case ReturningAnyWithError:
-				slog.DebugContext(ctx, fmt.Sprintf("executing ReturningAnyWithError for %s", arg))
+			case LookupAnyWithError:
+				slog.DebugContext(ctx, fmt.Sprintf("executing LookupAnyWithError for %s", arg))
 				val, ok, err := fn(suffix)
 				promise <- result{val: val, ok: ok, err: err}
 				close(promise)
 
-			case ReturningAnyWithContext:
-				slog.DebugContext(ctx, fmt.Sprintf("executing ReturningAnyWithContext for %s", arg))
+			case LookupAnyWithContext:
+				slog.DebugContext(ctx, fmt.Sprintf("executing LookupAnyWithContext for %s", arg))
 				go func() {
 					val, ok := fn(ctx, suffix)
 					promise <- result{val: val, ok: ok, err: nil}
 					close(promise)
 				}()
 
-			case ReturningAnyWithContextError:
-				slog.DebugContext(ctx, fmt.Sprintf("executing ReturningAnyWithContextError for %s", arg))
+			case LookupAnyWithContextError:
+				slog.DebugContext(ctx, fmt.Sprintf("executing LookupAnyWithContextError for %s", arg))
 				go func() {
 					val, ok, err := fn(ctx, suffix)
 					promise <- result{val: val, ok: ok, err: err}
@@ -259,7 +259,7 @@ func (m *FuncMuxContext) Execute(args ...string) (any, error) {
 				}()
 
 			default:
-				err := InvalidFunctionError{MuxType: "FuncMuxContext", Prefix: prefix, Func: fn}
+				err := InvalidFunctionError{Type: "MultiLookupContext", Prefix: prefix, Func: fn}
 				return nil, fmt.Errorf("unexpected error! it might be a bug: %w", err)
 			}
 		}
@@ -278,7 +278,7 @@ func (m *FuncMuxContext) Execute(args ...string) (any, error) {
 		}
 	}
 
-	return nil, MatchFailedError{Args: args, MuxKeys: m.FuncMux.keys()}
+	return nil, MatchFailedError{Args: args, Prefixes: m.MultiLookup.prefixes()}
 }
 
 // =================================================================================
@@ -288,20 +288,20 @@ func (m *FuncMuxContext) Execute(args ...string) (any, error) {
 var ErrNoFunctionRegistered = fmt.Errorf("no function registered")
 
 type InvalidFunctionError struct {
-	MuxType string
-	Prefix  Prefix
-	Func    any
+	Type   string
+	Prefix Prefix
+	Func   any
 }
 
 func (e InvalidFunctionError) Error() string {
-	return fmt.Sprintf("invalid function of %s: %+v with type %T", e.MuxType, e.Prefix, e.Func)
+	return fmt.Sprintf("invalid function of %s: %+v with type %T", e.Type, e.Prefix, e.Func)
 }
 
 type MatchFailedError struct {
-	Args    []string
-	MuxKeys []string
+	Args     []string
+	Prefixes []string
 }
 
 func (e MatchFailedError) Error() string {
-	return fmt.Sprintf("match failed for args: %q with functions: %q", e.Args, e.MuxKeys)
+	return fmt.Sprintf("match failed for args: %q within prefixes: %q", e.Args, e.Prefixes)
 }

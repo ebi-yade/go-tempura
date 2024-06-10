@@ -10,9 +10,13 @@ en: Go template utilities
 go get github.com/ebi-yade/go-tempura
 ```
 
-## Usage 1: `tempura.FuncMux`
+## Usage 1: `tempura.MultiLookup`
 
-引数に指定された string の列を受け取り、Prefix に応じた関数を呼び出し、値を探索します。
+`template.FuncMap` の値として代入可能な
+
+1. テンプレート側の記述で引数に指定された string の列を受け取ります。
+2. Prefix に応じたコールバックを呼び出し、同期または非同期で値を探索します。
+3. 一番最初のキーで見つかった（関数が返す bool が true になった）値を返します。
 
 論よりコード:
 
@@ -20,6 +24,7 @@ go get github.com/ebi-yade/go-tempura
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -37,26 +42,26 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	param := tempura.FuncMux{
-		tempura.SlashPrefix("env"):     tempura.Func(envCallback),
-		tempura.SlashPrefix("default"): tempura.Func(defaultCallback),
+	lookupParams := tempura.MultiLookup{
+		tempura.SlashPrefix("env"):     tempura.Func(getNonEmptyEnv),
+		tempura.SlashPrefix("default"): tempura.Func(getKeyAsValue),
 	}
-	if err := param.Validate(); err != nil {
-		log.Fatalf("failed to validate param: %v", err)
+	if err := lookupParams.Validate; err != nil {
+		log.Fatalf("failed to validate lookupParams: %v", err)
 	}
 
-	secret := tempura.FuncMux{
+	lookupSecrets := tempura.MultiLookup{
 		tempura.DotPrefix("manager"): tempura.FuncWithContextError(fetchSecretFromCloud),
-		tempura.DotPrefix("sops"):    tempura.FuncWithError(sopsCallback),
+		tempura.DotPrefix("sops"):    tempura.FuncWithError(getLocalSopsSecret),
 	}.BindContext(ctx) // DO NOT FORGET TO USE context.Context
-	if err := secret.Validate(); err != nil {
-		log.Fatalf("failed to validate secret: %v", err)
+	if err := lookupSecrets.Validate(); err != nil {
+		log.Fatalf("failed to validate lookupSecrets: %v", err)
 	}
 
 	tpl := template.Must(
 		template.New("").Funcs(template.FuncMap{
-			"param": param.Execute,
-			"secret": secret.Execute,
+			"param":  lookupParams.FuncMapValue,
+			"secret": lookupSecrets.FuncMapValue,
 		}).Parse(configYAML),
 	)
 
@@ -65,7 +70,9 @@ func main() {
 	}
 }
 
-func envCallback(key string) (string, bool) {
+// getNonEmptyEnv differs a little bit from os.LookupEnv
+// IMPORTANT NOTE: returning true means the key is found, so tempura will not try to look up the next key
+func getNonEmptyEnv(key string) (string, bool) {
 	val := os.Getenv(key)
 	if val == "" {
 		return "", false
@@ -73,17 +80,16 @@ func envCallback(key string) (string, bool) {
 	return val, true
 }
 
-func defaultCallback(key string) (string, bool) {
+func getKeyAsValue(key string) (string, bool) {
 	return key, true
 }
 
 func fetchSecretFromCloud(ctx context.Context, key string) (string, bool, error) {
-	// TODO: check out `contrib` package before implementing this function
-	panic("not implemented")
+	return "", false, fmt.Errorf("not implemented")
 }
 
-func sopsCallback(key string) (string, bool, error) {
-	panic("not implemented")
+func getLocalSopsSecret(key string) (string, bool, error) {
+	return "", false, fmt.Errorf("not implemented")
 }
 
 ```
