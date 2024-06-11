@@ -25,13 +25,13 @@ func TestMultiLookup_Validate(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		mux      *tempura.MultiLookup
+		receiver *tempura.MultiLookup
 		checkErr func(t *testing.T, err error)
 	}{
 		// ==================== VALID CASES ====================
 		{
 			name: "single valid function",
-			mux: &tempura.MultiLookup{
+			receiver: &tempura.MultiLookup{
 				tempura.DotPrefix("env"): tempura.Func(os.LookupEnv),
 			},
 			checkErr: func(t *testing.T, err error) {
@@ -40,7 +40,7 @@ func TestMultiLookup_Validate(t *testing.T) {
 		},
 		{
 			name: "multiple valid functions",
-			mux: &tempura.MultiLookup{
+			receiver: &tempura.MultiLookup{
 				tempura.DotPrefix("env"):     tempura.Func(os.LookupEnv),
 				tempura.DotPrefix("default"): tempura.Func(keyAsValue),
 				tempura.DotPrefix("oops"):    tempura.FuncWithError(always),
@@ -51,15 +51,15 @@ func TestMultiLookup_Validate(t *testing.T) {
 		},
 		// ==================== INVALID CASES ====================
 		{
-			name: "no functions registered",
-			mux:  &tempura.MultiLookup{},
+			name:     "no functions registered",
+			receiver: &tempura.MultiLookup{},
 			checkErr: func(t *testing.T, err error) {
 				assert.ErrorIs(t, err, tempura.ErrNoFunctionRegistered)
 			},
 		},
 		{
 			name: "contains invalid function that receives context",
-			mux: &tempura.MultiLookup{
+			receiver: &tempura.MultiLookup{
 				tempura.DotPrefix("env"):     tempura.Func(os.LookupEnv),
 				tempura.DotPrefix("default"): tempura.Func(keyAsValue),
 				tempura.DotPrefix("secret"):  tempura.FuncWithContextError(fetchSecret),
@@ -75,7 +75,7 @@ func TestMultiLookup_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.mux.Validate()
+			err := tt.receiver.Validate()
 			tt.checkErr(t, err)
 		})
 	}
